@@ -39,8 +39,10 @@
 #include <combine_grids/merging_pipeline.h>
 #include <ros/assert.h>
 #include <ros/console.h>
+
 #include <opencv2/stitching/detail/matchers.hpp>
 #include <opencv2/stitching/detail/motion_estimators.hpp>
+
 #include "estimation_internal.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -55,8 +57,7 @@ bool MergingPipeline::estimateTransforms(FeatureType feature_type,
   std::vector<cv::detail::CameraParams> transforms;
   std::vector<int> good_indices;
   // TODO investigate value translation effect on features
-  cv::Ptr<cv::detail::FeaturesFinder> finder =
-      internal::chooseFeatureFinder(feature_type);
+  auto finder = internal::chooseFeatureFinder(feature_type);
   cv::Ptr<cv::detail::FeaturesMatcher> matcher =
       cv::makePtr<cv::detail::AffineBestOf2NearestMatcher>();
   cv::Ptr<cv::detail::Estimator> estimator =
@@ -78,15 +79,19 @@ bool MergingPipeline::estimateTransforms(FeatureType feature_type,
 //    cv::Mat image_denoised;
 //    cv::fastNlMeansDenoising(image, image_denoised, 3, 7, 21);
     if (!image.empty()) {
+#if CV_VERSION_MAJOR >= 4   
+      cv::detail::computeImageFeatures(finder, image, image_features.back());
+#else   
       (*finder)(image, image_features.back());
+#endif
     }
   }
-  finder->collectGarbage();
+  finder = {};
 
   /* find corespondent features */
   ROS_DEBUG("pairwise matching features");
   (*matcher)(image_features, pairwise_matches);
-  matcher->collectGarbage();
+  matcher =  {};
 
 #ifndef NDEBUG
   internal::writeDebugMatchingInfo(images_, image_features, pairwise_matches);
